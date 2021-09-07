@@ -1,6 +1,19 @@
 import re
 import pynvim
-from typing import Tuple, cast
+from pynvim.api import Buffer
+from typing import Tuple, cast, List
+from time import time
+import logging
+from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
+@dataclass
+class Position:
+    row: int
+    col: int
 
 
 class BufferLimitException(Exception):
@@ -12,45 +25,53 @@ class Limit(object):
     def __init__(self, vim: pynvim.Nvim):
         self.vim = vim
 
+    @pynvim.command("Info")
+    def info_handler(self, args: Tuple[int, int] = (1, 1)):
+        pass
+
+    def current_buffer(self) -> List[str]:
+        buf: Buffer = self.vim.current.buffer
+        lines: List[str] = self.vim.api.buf_get_lines(buf.handle, 0, -1, True)
+        return lines
+
     #  slow as shit
     @pynvim.function("MoveToIndent")
     def move_to_indent_handler(self, args: Tuple[int, int] = (1, 1)):
-        try:
-            times, direction = args
-            #  find first line with content
-            while self._empty_line():
-                self._go_in_dir(direction)
+        pos = Position(*self.vim.current.window.cursor)
+        logger.info(f"pos={pos}")
 
-            leading_spaces = self._num_leading_spaces()
+        buffer = self.current_buffer()
+
+        times, direction = args
+        try:
+            #  find first line with content
+            while self._empty_line(pos, buffer):
+                pos.row += direction
+
+            leading_spaces = self._num_leading_spaces(pos, buffer)
 
             #  climb to specified indent level
             for c in range(times):
                 while True:
-                    self._go_in_dir(direction)
-                    if self._empty_line():
+                    pos.row += direction
+                    if pos.row == 1 or pos.row == len(buffer):
+                        raise BufferLimitException()
+                    if self._empty_line(pos, buffer):
                         continue
-                    num_leading_space_in_current_line = self._num_leading_spaces()
-                    if num_leading_space_in_current_line < leading_spaces:
-                        leading_spaces = num_leading_space_in_current_line
+                    leading_space_current_line = self._num_leading_spaces(pos, buffer)
+                    if leading_space_current_line < leading_spaces:
+                        leading_spaces = leading_space_current_line
                         break
+        except BufferLimitException as e:
+            pass
 
-        except pynvim.NvimError:
-            return
+        logger.info(f"newpos={pos}")
+        self.vim.current.window.cursor = [pos.row, pos.col]
 
-    def _empty_line(self):
-        return re.search(r"^\s*$", self.vim.current.line) is not None
+    def _empty_line(self, pos: Position, buffer: List[str]):
+        return re.search(r"^\s*$", buffer[pos.row - 1]) is not None
 
-    def _go_in_dir(self, direction: int):
-        pos = self.vim.current.window.cursor
-        pos[0] += direction
-        self.vim.current.window.cursor = pos
-
-    def _num_leading_spaces(self):
-        line = self.vim.current.line
+    def _num_leading_spaces(self, pos: Position, buffer: List[str]):
+        line = buffer[pos.row - 1]
         match = cast(re.Match, re.search(r"^(\s*)", line))
         return len(match.group(0))
-
-    def _setpos(self, row=None, col=None):
-        buf_num = self.vim.current.buffer.number
-        #  self.vim.command('setpos', buf_num, row)
-        self.vim.setpos(buf_num, row, col)
