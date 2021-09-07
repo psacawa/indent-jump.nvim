@@ -62,6 +62,9 @@ class Limit(object):
                     if leading_space_current_line < leading_spaces:
                         leading_spaces = leading_space_current_line
                         break
+                if leading_space_current_line == 0:
+                    break
+
         except BufferLimitException as e:
             pass
 
