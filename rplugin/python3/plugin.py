@@ -37,12 +37,15 @@ class Limit(object):
     #  slow as shit
     @pynvim.function("MoveToIndent")
     def move_to_indent_handler(self, args: Tuple[int, int] = (1, 1)):
+        times, direction = args
+        #  if no count is supplied, v:count  defaults to 0
+        #  in this case reset it to 1
+        times  = times or 1
+
         pos = Position(*self.vim.current.window.cursor)
         logger.info(f"pos={pos}")
-
         buffer = self.current_buffer()
 
-        times, direction = args
         try:
             #  find first line with content
             while self._empty_line(pos, buffer):
