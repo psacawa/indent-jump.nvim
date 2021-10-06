@@ -2,7 +2,6 @@ import re
 import pynvim
 from pynvim.api import Buffer
 from typing import Tuple, cast, List
-from time import time
 import logging
 from dataclasses import dataclass
 
@@ -21,7 +20,7 @@ class BufferLimitException(Exception):
 
 
 @pynvim.plugin
-class Limit(object):
+class IndentPlugin(object):
     def __init__(self, vim: pynvim.Nvim):
         self.vim = vim
 
@@ -40,11 +39,14 @@ class Limit(object):
         times, direction = args
         #  if no count is supplied, v:count  defaults to 0
         #  in this case reset it to 1
-        times  = times or 1
+        times = times or 1
 
         pos = Position(*self.vim.current.window.cursor)
         logger.info(f"pos={pos}")
         buffer = self.current_buffer()
+
+        #  save current location to jumplist
+        self.vim.command('normal m`')
 
         try:
             #  find first line with content
