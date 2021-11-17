@@ -8,6 +8,9 @@ from dataclasses import dataclass
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+empty_line_regex = re.compile(r"^\s*$")
+num_leading_space_regex = re.compile(r"^(\s*)")
+
 
 @dataclass
 class Position:
@@ -46,11 +49,11 @@ class IndentPlugin(object):
         buffer = self.current_buffer()
 
         #  save current location to jumplist
-        self.vim.command('normal m`')
+        self.vim.command("normal m`")
 
         try:
             #  find first line with content
-            while self._empty_line(pos, buffer):
+            while pos.row not in [0, len(buffer) - 1] and self._empty_line(pos, buffer):
                 pos.row += direction
 
             leading_spaces = self._num_leading_spaces(pos, buffer)
@@ -58,9 +61,9 @@ class IndentPlugin(object):
             #  climb to specified indent level
             for c in range(times):
                 while True:
-                    pos.row += direction
-                    if pos.row == 1 or pos.row == len(buffer):
+                    if pos.row + direction not in range(1, len(buffer)+1):
                         raise BufferLimitException()
+                    pos.row += direction
                     if self._empty_line(pos, buffer):
                         continue
                     leading_space_current_line = self._num_leading_spaces(pos, buffer)
@@ -77,9 +80,9 @@ class IndentPlugin(object):
         self.vim.current.window.cursor = [pos.row, pos.col]
 
     def _empty_line(self, pos: Position, buffer: List[str]):
-        return re.search(r"^\s*$", buffer[pos.row - 1]) is not None
+        return empty_line_regex.search(buffer[pos.row - 1]) is not None
 
     def _num_leading_spaces(self, pos: Position, buffer: List[str]):
         line = buffer[pos.row - 1]
-        match = cast(re.Match, re.search(r"^(\s*)", line))
+        match = cast(re.Match, num_leading_space_regex.search(line))
         return len(match.group(0))
