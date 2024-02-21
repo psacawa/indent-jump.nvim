@@ -39,6 +39,7 @@ class IndentPlugin(object):
     #  slow as shit
     @pynvim.function("MoveToIndent")
     def move_to_indent_handler(self, args: Tuple[int, int] = (1, 1)):
+        #  orig_mode = self.vim.api.get_mode()['mode']
         times, direction = args
         #  if no count is supplied, v:count  defaults to 0
         #  in this case reset it to 1
@@ -61,7 +62,7 @@ class IndentPlugin(object):
             #  climb to specified indent level
             for c in range(times):
                 while True:
-                    if pos.row + direction not in range(1, len(buffer)+1):
+                    if pos.row + direction not in range(1, len(buffer) + 1):
                         raise BufferLimitException()
                     pos.row += direction
                     if self._empty_line(pos, buffer):
